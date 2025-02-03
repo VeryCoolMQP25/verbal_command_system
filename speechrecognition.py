@@ -3,7 +3,7 @@ import time
 import pyttsx3 
 import re
 from nav_classifier import RoomClassifier
-# from nav_stack import handle_navigation
+# from nav_stack import GoalPublisherNode
 
 recognizer = sr.Recognizer()
 engine = pyttsx3.init()
@@ -61,12 +61,12 @@ def commands(): #after wake_word() returns true
 
                 if any(keyword in cleaned_command for keyword in NAV_KEYWORDS):
                     print("Nav stack triggered") 
-                    print(recognized_text)
+                    # print(recognized_text)
                     result = classifier.get_navigation_response(recognized_text)
                     engine.say(f"{result['message']}")
                     print(classifier.extract_location_info(recognized_text)) #testing purposes
                     engine.runAndWait()
-                    #gotta test nav stack file before adding it here...
+                    #insert nav stack code...
 
             except sr.UnknownValueError:
                 continue
