@@ -9,11 +9,11 @@ class RoomClassifier:
         # Define room patterns with fixed floor associations
         self.room_patterns = {
             "elevator": {
-                "patterns": ["elevator", "lift"],
-                "fixed_floor": None  # any floor
+                "patterns": ["elevator", "lift"], 
+                "fixed_floor": None  
             },
             "stairs": {
-                "patterns": ["stairs"],
+                "patterns": ["stairs", "stair"], #weird bug, but each pattern needs at least 2 or it won't work 
                 "fixed_floor": None
             },
             "restrooms": {
@@ -34,14 +34,13 @@ class RoomClassifier:
             }
         }
         
-        #still trying to figure out how to organize this, especially if they are on multiple floors but not all floors...:  
-        # "classroom": ["classroom", "lecture room", "room", "lecture hall", "unity", "UH", "you ache"],
-        # "study area": ["study area", "study corner", "study tables", "study pods"], 
-        # "tech suites": ["tech suites"], 
-        # "Unity 100": ["Unity Hall 100", "Unity 100", "UH 100", "you ache 100", "mqp lab"], 
-        # "Unity 105": ["Unity Hall 105", "Unity 105", "UH 105", "you ache 105", "pear lab", "soft robotics lab"], 
-        # "offices": ["offices", "professor's offices"], 
-
+#         #still trying to figure out how to organize this, especially if they are on multiple floors but not all floors...:  
+#         # "classroom": ["classroom", "lecture room", "room", "lecture hall", "unity", "UH", "you ache"],
+#         # "study area": ["study area", "study corner", "study tables", "study pods"], 
+#         # "tech suites": ["tech suites"], 
+#         # "Unity 100": ["Unity Hall 100", "Unity 100", "UH 100", "mqp lab"], 
+#         # "Unity 105": ["Unity Hall 105", "Unity 105", "UH 105", "pear lab", "soft robotics lab"], 
+#         # "offices": ["offices", "professor's offices"], 
 
         # Define floor patterns
         self.floor_patterns = {
@@ -52,8 +51,16 @@ class RoomClassifier:
             "fifth": ["fifth floor", "5th floor", "floor 5", "floor five", "top floor", "fifth level"]
         }
 
-    def extract_room_number(self, text):
-        """Extract room number from text and determine floor"""
+        self.reset_context()
+
+    def reset_context(self): #reset stored context
+        self.context = {
+            'room': None,
+            'room_number': None,
+            'floor': None
+        }
+
+    def extract_room_number(self, text): #determine floor based on room number
         room_numbers = re.findall(r'\b[1-4][0-9]{2}\b', text)
         
         if not room_numbers:
@@ -72,18 +79,29 @@ class RoomClassifier:
         
         return room_number, floor_mapping.get(floor_number)
 
-    #uses natural language processing 
     def preprocess_text(self, text):
         text = text.lower()
         text = re.sub(r'[^\w\s]', ' ', text)
         doc = self.nlp(text)
         return ' '.join([token.lemma_ for token in doc])
 
-    #extract room/floor information 
-    def extract_location_info(self, text):
+    def update_context(self, new_info):
+        for key in self.context:
+            if new_info[key] is not None:
+                self.context[key] = new_info[key]
+
+    def get_combined_text(self, text):
+        """Combine current input with stored context"""
+        combined = text
+        if self.context['room'] and "room" not in text.lower():
+            combined = f"{self.context['room']} {combined}"
+        if self.context['room_number'] and not any(char.isdigit() for char in text):
+            combined = f"room {self.context['room_number']} {combined}"
+        return combined
+
+    def extract_location_info(self, text): # determine room/floor based on input 
         processed_text = self.preprocess_text(text)
         
-        #check for room number first 
         room_number, floor_from_number = self.extract_room_number(processed_text)
         if room_number:
             return {
@@ -92,7 +110,6 @@ class RoomClassifier:
                 'floor': floor_from_number
             }
         
-        #if no room number, find room type
         room_type = None
         fixed_floor = None
         
@@ -105,7 +122,6 @@ class RoomClassifier:
             if room_type:
                 break
         
-        #if no room number, find floor (if not fixed)
         floor_type = fixed_floor
         
         if not fixed_floor:
@@ -125,30 +141,46 @@ class RoomClassifier:
         }
 
     def get_navigation_response(self, text):
-        info = self.extract_location_info(text)
+        """Get navigation response using current input and stored context"""
+        # Extract new information from current input
+        new_info = self.extract_location_info(text)
+        
+        # Update stored context with new information
+        self.update_context(new_info)
+        
+        # Combine current input with context
+        combined_text = self.get_combined_text(text)
+        
+        # Get final information using combined text
+        info = self.extract_location_info(combined_text)
         
         if info['room_number']:
             return {
                 'success': True,
                 'message': f"I'll take you to room {info['room_number']} on the {info['floor']} floor.",
+                'missing': None
             }
         
         if info['room'] is None:
-            if info['floor'] is None: # if room and floor don't exist 
+            if info['floor'] is None:
                 return {
-                'success': False,
-                'message': "I couldn't understand which room or floor you're looking for. Please be more specific.",
-            }
-            else: #if just room doesn't exist 
+                    'success': False,
+                    'message': "I couldn't understand which room or floor you're looking for. Please be more specific.",
+                    'missing': 'both'
+                }
+            else:
                 return {
                     'success': False,
                     'message': "I couldn't understand which room you're looking for. Please be more specific.",
+                    'missing': 'room'
                 }
         
         if info['floor'] is None:
+            room_desc = self.context['room_number'] if self.context['room_number'] else self.context['room']
             return {
                 'success': False,
-                'message': "I couldn't understand which floor you're looking for. Please be more specific.",
+                'message': f"I couldn't understand which floor the {room_desc} is on. Please specify the floor.",
+                'missing': 'floor'
             }
         
         response = f"I'll take you to the {info['room'].replace('_', ' ')} "
@@ -164,6 +196,7 @@ class RoomClassifier:
         return {
             'success': True,
             'message': response,
+            'missing': None
         }
     
 if __name__ == "__main__":
@@ -177,9 +210,10 @@ if __name__ == "__main__":
         "Navigate to the curtain area",  #will automatically use second floor 
         "Navigate to the restrooms", #unknown floor 
         "Can you show me where room 156 is?",
-        "Navigate to room 425", 
-        "Take me to tech suite 316", 
-        "Take me to blah blah blah" #doesn't exist 
+        "Navigate to room 425.", 
+        "Take me to tech suite 316 please.", 
+        "Take me to blah blah blah", #doesn't exist 
+        "Take me to the stairs on the second floor"
     ]
     
     for phrase in test_phrases:
