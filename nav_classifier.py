@@ -91,7 +91,6 @@ class RoomClassifier:
                 self.context[key] = new_info[key]
 
     def get_combined_text(self, text):
-        """Combine current input with stored context"""
         combined = text
         if self.context['room'] and "room" not in text.lower():
             combined = f"{self.context['room']} {combined}"
@@ -141,17 +140,9 @@ class RoomClassifier:
         }
 
     def get_navigation_response(self, text):
-        """Get navigation response using current input and stored context"""
-        # Extract new information from current input
         new_info = self.extract_location_info(text)
-        
-        # Update stored context with new information
         self.update_context(new_info)
-        
-        # Combine current input with context
-        combined_text = self.get_combined_text(text)
-        
-        # Get final information using combined text
+        combined_text = self.get_combined_text(text)        
         info = self.extract_location_info(combined_text)
         
         if info['room_number']:
