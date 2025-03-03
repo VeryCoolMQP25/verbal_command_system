@@ -6,7 +6,6 @@ def run_other_script():
     if os.path.exists('current_navigation.json'):
         os.remove('current_navigation.json')
     try:
-        # This will run `other_script.py` in the same folder
         subprocess.run(['python3', 'realtimestt3.py'], check=True)
         print("Script executed successfully!")
     except subprocess.CalledProcessError as e:

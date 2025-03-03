@@ -2,6 +2,7 @@ import spacy
 import re
 import json 
 import subprocess 
+import os
 
 class RoomClassifier:
     def __init__(self):
@@ -63,7 +64,7 @@ class RoomClassifier:
         }
 
     def extract_room_number(self, text): #determine floor based on room number
-        room_numbers = re.findall(r'\b[1-4][0-9]{2}\b', text)
+        room_numbers = re.findall(r'\b[1-5][0-9]{2}\b', text)
         
         if not room_numbers:
             return None, None
@@ -136,7 +137,8 @@ class RoomClassifier:
     def json(self, text):
         flag = 0
 
-        with open('Unity_coords.json', 'r') as file:
+        json_path = os.path.join(os.path.dirname(__file__), '../public/Unity_coords.json')
+        with open(json_path, 'r') as file:
             json_data = json.load(file)
         floor_key = "floor_" + str(text['floor'][0]) 
         room_key = text['room_number']
