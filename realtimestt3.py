@@ -7,31 +7,16 @@ from websocket_server import WebsocketServer
 import json
 from nav_classifier import RoomClassifier
 from llm_rag import LLM_RAG
+from navigation_stack import NavigationNode
+import rclpy
 import asyncio
 import websockets
+import json
 
 classifier = RoomClassifier()
 llm = LLM_RAG()
+
 engine = pyttsx3.init()
-
-room_num = None #global variable 
-
-async def send_room_and_floor(room_number, floor_number):
-    print(f"Sending room number: {room_number}, floor number: {floor_number}")
-    uri = "ws://localhost:8765"  # WebSocket server URI
-    data = {
-        "room_number": room_number,
-        "floor_number": floor_number
-    }
-    
-    # Convert the dictionary to a JSON string
-    json_data = json.dumps(data)
-    print(json_data)
-    
-    # Connect to the WebSocket server
-    async with websockets.connect(uri) as websocket:
-        await websocket.send(json_data)  # Send the JSON data to the WebSocket server
-        print(f"Sent room number: {room_number} and floor number: {floor_number}")
 
 def clean_text(text):
     cleaned_text = text.strip().lower()
@@ -42,7 +27,7 @@ def clean_text(text):
 def wake_word(text):
     if text:
         cleaned_text = clean_text(text)
-        if "hey tori" in cleaned_text or "hey tory" in cleaned_text or "hey torry" in cleaned_text:
+        if "hey tori" in cleaned_text or "hey tory" in cleaned_text or "hey torry" in cleaned_text or "hitori" in cleaned_text:
             engine.say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
             engine.runAndWait()
             time.sleep(7)
@@ -132,50 +117,54 @@ def main():
     
     try:
         while True:
-            print("Listening for the wake phrase...")
-            engine.say("Please say a wake word when you are ready")
-            engine.runAndWait()
-            time.sleep(1)
+            # print("Listening for the wake phrase...")
+            # engine.say("Please say a wake word when you are ready")
+            # engine.runAndWait()
+            # time.sleep(1)
             
-            while True:  # wake word loop
-                text = recorder.text()
-                if exit(text):
-                    return
-                if wake_word(text):
-                    break
-            
-            while True: #command loop 
-                text = recorder.text()
-                if exit(text):
-                    return
-                if text:
-                    cleaned_text = clean_text(text)
-                    if "navigation" in cleaned_text:
-                        nav_result, room_num, floor = handle_navigation(recorder, classifier)
-                        if exit(text):
-                            return
-                        if nav_result:  # successful navigation 
-                            print("get the location to the gui somehow")
-                            print(floor)
-                            print(room_num)
-                            asyncio.run(send_room_and_floor(room_num, floor))
-                            classifier.reset_context()  # reset context after navigation
-                            return
-                        if not nav_result:  # restart after 3 attempts
-                            break 
-                    elif "question" in cleaned_text:
-                        question(recorder)
+            # while True:  # wake word loop
+            text = recorder.text()
+            if exit(text):
+                return
+            if wake_word(text):
+                break
+        
+        while True: # command loop 
+            text = recorder.text()
+            if exit(text):
+                return
+            if text:
+                cleaned_text = clean_text(text)
+                if "navigation" in cleaned_text:
+                    nav_result, room_num, floor = handle_navigation(recorder, classifier)
+                    if exit(text):
                         return
-                time.sleep(1)
+                    if nav_result:  # successful navigation 
+                        print(floor)
+                        print(room_num)
+                        rclpy.init() # have to call this here otherwise the script doesn't work right 
+                        nav_stack = NavigationNode() #^
+                        with open('current_navigation.json', 'w') as f:
+                            json.dump({"room": room_num, "floor": floor, "timestamp": time.time()}, f)
+                        nav_stack.navigate(room_num, floor)
+                        classifier.reset_context()  # reset context after navigation
+                        return
+                    if not nav_result:  # restart after 3 attempts
+                        break 
+                elif "question" in cleaned_text:
+                    question(recorder)
+                    return
+            time.sleep(1)
 
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
 
 if __name__ == "__main__":
     main()
-    # asyncio.run(send_room_and_floor("UH400", "4"))
-    # print("server running")
-
-#what if user wants to go to its current location? Does this need to be a case in the code in case Tori is already at localized location? 
-
-#if no audio for 10 seconds, it will turn off functionality needed 
+    # room_num = "UH400"
+    # floor = "4"
+    # rclpy.init() # have to call this here otherwise the script doesn't work right 
+    # nav_stack = NavigationNode() #^
+    # with open('current_navigation.json', 'w') as f:
+    #     json.dump({"room": room_num, "floor": floor, "timestamp": time.time()}, f)
+    # nav_stack.navigate(room_num, floor) 
