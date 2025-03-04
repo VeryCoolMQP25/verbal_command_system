@@ -140,13 +140,20 @@ def main():
                     if exit(text):
                         return
                     if nav_result:  # successful navigation 
-                        print(floor)
-                        print(room_num)
                         rclpy.init() # have to call this here otherwise the script doesn't work right 
                         nav_stack = NavigationNode() #^
                         with open('current_navigation.json', 'w') as f:
                             json.dump({"room": room_num, "floor": floor, "timestamp": time.time()}, f)
-                        nav_stack.navigate(room_num, floor)
+                        try: 
+                            success = nav_stack.navigate(room_num, floor) 
+                            if success:
+                                rclpy.spin(nav_stack)
+                            else:
+                                nav_stack.get_logger().error("Navigation failed!")
+                        finally: 
+                            nav_stack.destroy_node()
+                            rclpy.shutdown()
+
                         classifier.reset_context()  # reset context after navigation
                         return
                     if not nav_result:  # restart after 3 attempts
@@ -167,4 +174,12 @@ if __name__ == "__main__":
     # nav_stack = NavigationNode() #^
     # with open('current_navigation.json', 'w') as f:
     #     json.dump({"room": room_num, "floor": floor, "timestamp": time.time()}, f)
-    # nav_stack.navigate(room_num, floor) 
+    # try: 
+    #     success = nav_stack.navigate(room_num, floor) 
+    #     if success:
+    #         rclpy.spin(nav_stack)
+    #     else:
+    #         nav_stack.get_logger().error("Navigation failed!")
+    # finally: 
+    #     nav_stack.destroy_node()
+    #     rclpy.shutdown()
