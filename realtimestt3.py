@@ -3,15 +3,11 @@ import time
 import string
 import subprocess
 from RealtimeSTT import AudioToTextRecorder
-from websocket_server import WebsocketServer
 import json
 from nav_classifier import RoomClassifier
 from llm_rag import LLM_RAG
 from navigation_stack import NavigationNode
 import rclpy
-import asyncio
-import websockets
-import json
 
 classifier = RoomClassifier()
 llm = LLM_RAG()

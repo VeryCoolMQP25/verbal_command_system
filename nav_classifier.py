@@ -36,7 +36,7 @@ class RoomClassifier:
                 "fixed_floor": "None" 
             }, 
             "Study_Area": {
-                "patterns": ["area"],
+                "patterns": ["study", "study area"],
                 "fixed_floor": "None" 
             }, 
             "UH100": {
@@ -137,15 +137,27 @@ class RoomClassifier:
     def json(self, text):
         flag = 0
 
+        if not text or text.get('floor') is None:
+            print("No floor information provided")
+            return flag
+
         json_path = os.path.join(os.path.dirname(__file__), '../public/Unity_coords.json')
         with open(json_path, 'r') as file:
             json_data = json.load(file)
-        floor_key = "floor_" + str(text['floor'][0]) 
-        room_key = text['room_number']
-        if room_key is None: 
-            room_key = text['room']
-        print(floor_key)
-        print(room_key)
+        
+        floor = text['floor']
+        if isinstance(floor, list):
+            floor = floor[0]
+        
+        floor_key = f"floor_{floor}"
+        
+        room_key = text.get('room_number') or text.get('room')
+        
+        if not room_key:
+            print("No room information provided")
+            return flag
+
+        print(f"Checking floor: {floor_key}, Room: {room_key}")
 
         if floor_key in json_data:
             print(f"{floor_key} exists in JS data")
@@ -158,6 +170,8 @@ class RoomClassifier:
                 print(f"Room {room_key} not found in {floor_key}.")
         else:
             print(f"{floor_key} not found in JS data.")
+        
+        return flag
 
 
     def get_navigation_response(self, text):
@@ -166,56 +180,60 @@ class RoomClassifier:
         combined_text = self.get_combined_text(text)        
         info = self.extract_location_info(combined_text)
         print(info)
-        json = self.json(info)
-        print(f"flag: {json}")
         
-        if info['room_number']: 
-            if json == 1: 
-                return {
-                    'success': True,
-                    'message': f"I'll take you to room {info['room_number']} on floor number {info['floor']}.",
-                    'missing': None
-                }
-            else: 
-                return{
-                    'success': False,
-                    'message': "That room does not exist. Please try again.",
-                    'missing': 'both'
-                }
-        if info['room']: 
-            if json == 1: 
-                return {
-                    'success': True,
-                    'message': f"I'll take you to room {info['room']} on floor number {info['floor']}.",
-                    'missing': None
-                }
-            else: 
-                return{
-                    'success': False,
-                    'message': "That room does not exist. Please try again.",
-                    'missing': 'both'
-                }
-        
-        if info['room'] is None:
-            if info['floor'] is None:
-                return {
-                    'success': False,
-                    'message': "I couldn't understand which room or floor you're looking for. Please be more specific.",
-                    'missing': 'both'
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': "I couldn't understand which room you're looking for. Please be more specific.",
-                    'missing': 'room'
-                }
-        
-        if info['floor'] is None:
-            room_desc = self.context['room_number'] if self.context['room_number'] else self.context['room']
+        # f room or floor is None 
+        if info['room'] is None and info['room_number'] is None:
             return {
                 'success': False,
-                'message': f"I couldn't understand which floor the {room_desc} is on. Please specify the floor.",
+                'message': "I couldn't understand which room you're looking for. Could you specify a room number or name?",
+                'missing': 'room'
+            }
+        
+        if info['floor'] is None:
+            return {
+                'success': False,
+                'message': "I couldn't understand which floor the room is on. Could you specify a floor?",
                 'missing': 'floor'
+            }
+        
+        # if both room and floor are present
+        try:
+            json_result = self.json(info)
+            
+            if info['room_number']: 
+                if json_result == 1: 
+                    return {
+                        'success': True,
+                        'message': f"I'll take you to room {info['room_number']} on floor number {info['floor']}.",
+                        'missing': None
+                    }
+                else: 
+                    return {
+                        'success': False,
+                        'message': "That room does not exist. Please try again.",
+                        'missing': 'both'
+                    }
+            
+            if info['room']: 
+                if json_result == 1: 
+                    return {
+                        'success': True,
+                        'message': f"I'll take you to {info['room']} on floor number {info['floor']}.",
+                        'missing': None
+                    }
+                else: 
+                    return {
+                        'success': False,
+                        'message': "That room does not exist. Please try again.",
+                        'missing': 'both'
+                    }
+        
+        except Exception as e:
+            print(f"Error in navigation response: {e}")
+            return {
+                'success': False,
+                'message': "I'm having trouble processing your request. Could you please try again?",
+                'missing': 'both'
             }
         
 if __name__ == "__main__":
