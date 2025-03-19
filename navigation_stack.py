@@ -52,8 +52,8 @@ def main():
     nav_node = NavigationNode()
     
     try: #testing 
-        room_num = "UH400"
-        floor = "4"
+        room_num = "UH300"
+        floor = "3"
         success = nav_node.navigate(room_num, floor)
         if success:
             rclpy.spin(nav_node)

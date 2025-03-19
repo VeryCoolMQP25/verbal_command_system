@@ -158,7 +158,7 @@ def exit_check(text):
     return False
 
 def main():
-    vosk_model_path = "/home/aashi/Downloads/vosk-model-small-en-us-0.15"
+    vosk_model_path = "./vosk-model-small-en-us-0.15"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:

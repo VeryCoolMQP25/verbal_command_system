@@ -1,13 +1,14 @@
-import spacy
+import nltk
 import re
 import json 
-import subprocess 
 import os
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
 class RoomClassifier:
     def __init__(self):
-        # Load English language model
-        self.nlp = spacy.load("en_core_web_sm")
+        # Initialize the lemmatizer from NLTK
+        self.lemmatizer = WordNetLemmatizer()
         
         # Define room patterns with fixed floor associations
         self.room_patterns = { 
@@ -16,7 +17,7 @@ class RoomClassifier:
                 "fixed_floor": None  
             },
             "Stairs": {
-                "patterns": ["stairs", "stair"], #weird bug, but each pattern needs at least 2 or it won't work 
+                "patterns": ["stairs", "stair"], 
                 "fixed_floor": None
             },
             "Restrooms": {
@@ -77,8 +78,22 @@ class RoomClassifier:
     def preprocess_text(self, text):
         text = text.lower()
         text = re.sub(r'[^\w\s]', ' ', text)
-        doc = self.nlp(text)
-        return ' '.join([token.lemma_ for token in doc])
+        
+        # Tokenize the text using NLTK
+        tokens = word_tokenize(text)
+        
+        # Lemmatize each token
+        lemmatized_tokens = []
+        for token in tokens:
+            try:
+                # Try to lemmatize 
+                lemmatized_token = self.lemmatizer.lemmatize(token)
+                lemmatized_tokens.append(lemmatized_token)
+            except:
+                # Fallback if lemmatization fails
+                lemmatized_tokens.append(token)
+        
+        return ' '.join(lemmatized_tokens)
 
     def update_context(self, new_info):
         for key in self.context:
@@ -173,7 +188,6 @@ class RoomClassifier:
         
         return flag
 
-
     def get_navigation_response(self, text):
         new_info = self.extract_location_info(text)
         self.update_context(new_info)
@@ -181,7 +195,7 @@ class RoomClassifier:
         info = self.extract_location_info(combined_text)
         print(info)
         
-        # f room or floor is None 
+        # if room or floor is None 
         if info['room'] is None and info['room_number'] is None:
             return {
                 'success': False,
@@ -235,7 +249,7 @@ class RoomClassifier:
                 'message': "I'm having trouble processing your request. Could you please try again?",
                 'missing': 'both'
             }
-        
+
 if __name__ == "__main__":
     classifier = RoomClassifier()
     # text = {'room': 'room', 'room_number': '300', 'floor': '3'}
