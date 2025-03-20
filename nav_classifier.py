@@ -5,6 +5,11 @@ import os
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
+# nltk.download('punkt')
+# nltk.download('punkt_tab')
+# nltk.download('wordnet')
+# nltk.download('averaged_perceptron_tagger')
+
 class RoomClassifier:
     def __init__(self):
         # Initialize the lemmatizer from NLTK

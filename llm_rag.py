@@ -112,7 +112,7 @@ class LLM_RAG:
         # Prompt engineering 
         prompt = f"""Context: {context}
 Question: {query_text}
-Instructions: Answer without using lists or numbers. Provide a natural flowing response. If you are not sure, just say you don't know.
+Instructions: Only answer questions about Unity Hall. Answer without using lists or numbers. Provide a natural flowing response. If you are not sure, just say you don't know.
 Answer:"""
         
         # Generate response
