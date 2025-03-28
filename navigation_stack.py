@@ -9,10 +9,10 @@ import time
 class NavigationNode(Node):
     def __init__(self):
         super().__init__('navigation_node')
-        self.goal_publisher = self.create_publisher(PoseStamped, '/goal_pose', 100)
+        self.goal_publisher = self.create_publisher(PoseStamped, '/goal_pose', 10)
         
         # Room coordinates 
-        json_path = os.path.join(os.path.dirname(__file__), '../public/Unity_coords.json')
+        json_path = os.path.join(os.path.dirname(__file__), '../Robot-GUI/public/Unity_coords.json')
         with open(json_path, 'r') as file:
             self.room_coordinates = json.load(file)
         
@@ -35,6 +35,8 @@ class NavigationNode(Node):
                 goal_msg.pose.position = Point(x=float(coordinates["x"]), y=float(coordinates["y"]), z=float(coordinates["z"]))
                 goal_msg.pose.orientation = Quaternion(x=float(0.0), y=float(0.0), z=float(coordinates["orientationZ"]), w=float(coordinates["orientationW"]))
                 self.goal_publisher.publish(goal_msg)
+                # self.goal_publisher.publish(goal_msg)
+                # self.goal_publisher.publish(goal_msg)
 
                 self.get_logger().info("Goal published!")
                 time.sleep(0.5)
@@ -52,19 +54,21 @@ def main():
     nav_node = NavigationNode()
     
     try: #testing 
-        room_num = "UH300"
-        floor = "3"
+        room_num = "Elevator"
+        floor = "1"
         success = nav_node.navigate(room_num, floor)
         if success:
-            rclpy.spin(nav_node)
+            rclpy.spin_once(nav_node)
         else:
             nav_node.get_logger().error("Navigation failed!")
     
     except KeyboardInterrupt:
         pass
     finally:
-        nav_node.destroy_node()
-        rclpy.shutdown()
+
+        if rclpy.ok():
+            nav_node.destroy_node()
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

@@ -102,8 +102,11 @@ class RoomClassifier:
 
     def update_context(self, new_info):
         for key in self.context:
-            if new_info[key] is not None:
+            if key in new_info and new_info[key] is not None:
                 self.context[key] = new_info[key]
+        
+        print(f"Updated context: {self.context}")
+
 
     def get_combined_text(self, text):
         combined = text
@@ -138,7 +141,7 @@ class RoomClassifier:
         
         floor_type = fixed_floor
         
-        if not fixed_floor:
+        if not floor_type:
             for floor, variants in self.floor_patterns.items():
                 for variant in variants:
                     if variant in processed_text:
@@ -146,6 +149,16 @@ class RoomClassifier:
                         break
                 if floor_type:
                     break
+        
+        # If we still didn't find a floor, check if there are any numeric references
+        if not floor_type:
+            # Look for single digit numbers that could represent floors (1-5)
+            floor_digits = re.findall(r'\b[1-5]\b', processed_text)
+            if floor_digits:
+                floor_type = floor_digits[0]
+        
+        print(f"Processed text: '{processed_text}'")
+        print(f"Detected floor patterns: {[pattern for floor, patterns in self.floor_patterns.items() for pattern in patterns if pattern in processed_text]}")
         
         return {
             'room': room_type,
@@ -161,7 +174,7 @@ class RoomClassifier:
             print("No floor information provided")
             return flag
 
-        json_path = os.path.join(os.path.dirname(__file__), '../public/Unity_coords.json')
+        json_path = os.path.join(os.path.dirname(__file__), '../Robot-GUI/public/Unity_coords.json')
         with open(json_path, 'r') as file:
             json_data = json.load(file)
         
@@ -192,15 +205,25 @@ class RoomClassifier:
             print(f"{floor_key} not found in JS data.")
         
         return flag
-
+    
     def get_navigation_response(self, text):
         new_info = self.extract_location_info(text)
         self.update_context(new_info)
-        combined_text = self.get_combined_text(text)        
+        combined_text = self.get_combined_text(text)
         info = self.extract_location_info(combined_text)
-        print(info)
         
-        # if room or floor is None 
+        if info['room'] is None and self.context['room'] is not None:
+            info['room'] = self.context['room']
+        
+        if info['room_number'] is None and self.context['room_number'] is not None:
+            info['room_number'] = self.context['room_number']
+        
+        if info['floor'] is None and self.context['floor'] is not None:
+            info['floor'] = self.context['floor']
+        
+        print("Final info for navigation:", info)
+        
+        # Now check if we have all the needed information
         if info['room'] is None and info['room_number'] is None:
             return {
                 'success': False,
@@ -215,7 +238,7 @@ class RoomClassifier:
                 'missing': 'floor'
             }
         
-        # if both room and floor are present
+        # If both room and floor are present 
         try:
             json_result = self.json(info)
             
@@ -229,7 +252,7 @@ class RoomClassifier:
                 else: 
                     return {
                         'success': False,
-                        'message': "That room does not exist. Please try again.",
+                        'message': f"Room {info['room_number']} on floor {info['floor']} does not exist. Please try again.",
                         'missing': 'both'
                     }
             
@@ -243,7 +266,7 @@ class RoomClassifier:
                 else: 
                     return {
                         'success': False,
-                        'message': "That room does not exist. Please try again.",
+                        'message': f"{info['room']} on floor {info['floor']} does not exist. Please try again.",
                         'missing': 'both'
                     }
         
@@ -254,7 +277,7 @@ class RoomClassifier:
                 'message': "I'm having trouble processing your request. Could you please try again?",
                 'missing': 'both'
             }
-
+        
 if __name__ == "__main__":
     classifier = RoomClassifier()
     # text = {'room': 'room', 'room_number': '300', 'floor': '3'}

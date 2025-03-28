@@ -35,6 +35,7 @@ def say(text):
         )
         # Wait until audio finishes playing
         play_obj.wait_done()
+        time.sleep(0.2)
     except Exception as e:
         print(f"TTS Error: {e}")
 
@@ -78,25 +79,29 @@ def listen_for_text(stream, rec, sample_rate, chunk_size, timeout=None):
                 return text
     return None
 
-def exit_check(text):
+def exit_check(text, stream):
     if text:
         cleaned_text = clean_text(text)
         exit_words = {"stop", "goodbye", "bye", "exit", "quit", "end"}
         
         if any(word in cleaned_text.lower() for word in exit_words):
+            stream.stop_stream()  # Stop stream before robot speaks
             say("Goodbye!")
+            # time.sleep(0.5)
+            stream.start_stream()  # Restart stream to listen for user
+            time.sleep(0.5)
             return True
     return False
+
 
 def wake_word(stream, text):
     if text:
         cleaned_text = clean_text(text)
-        wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori"]
+        wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori", "katori"]
         
         if any(phrase in cleaned_text for phrase in wake_phrases):
-            say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
             stream.stop_stream() # Stop audio recording (so speech to text lib does not pick up Tori's words)
-            time.sleep(1)
+            say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
             stream.start_stream() # Restart audio recording 
             return True
     return False
@@ -108,8 +113,10 @@ def convert_number_words(sentence):
         return f"Error: {e}"
 
 def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
+    stream.stop_stream()
     say("Where do you want to go?")
-    time.sleep(1)
+    # time.sleep(1)
+    stream.start_stream()
     
     MAX_ATTEMPTS = 3
     for attempts in range(MAX_ATTEMPTS):
@@ -118,63 +125,80 @@ def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
         if not text:
             continue
             
-        if exit_check(text):
+        if exit_check(text, stream):
             return None
         
         cleaned_text = clean_text(text)
         cleaned_text2 = convert_number_words(cleaned_text)
         print(f"Original: '{cleaned_text}', Converted: '{cleaned_text2}'")
         
+        # Get navigation response which will update and use the context
         response = classifier.get_navigation_response(cleaned_text2)
         print("Navigation Response:", response)
         
         if not response['success']:
+            stream.stop_stream()
             say(response['message'])
+            time.sleep(0.5)
+            stream.start_stream()
             
             # If last attempt, reset context
             if attempts == MAX_ATTEMPTS - 1:
                 classifier.reset_context()
+                stream.stop_stream()
                 say("Let's start over. Please say the wake phrase when you're ready.")
+                time.sleep(0.5)
+                stream.start_stream()
                 return False
             continue
         
-        var = classifier.extract_location_info(cleaned_text2)
-        room_num = var.get('room_number') or var.get('room')
-        floor = var.get('floor')
+        # If navigation is successful, extract the room and floor information
+        room_info = classifier.extract_location_info(cleaned_text2)
+        room_num = room_info.get('room_number') or room_info.get('room') or classifier.context.get('room')
+        floor = room_info.get('floor') or classifier.context.get('floor')
         
         # Ensure floor is a string
         if isinstance(floor, list):
             floor = floor[0]
         
+        stream.stop_stream()
         say(response['message'])
+        time.sleep(0.5)
+        stream.start_stream()
         return True, room_num, floor
+    
     return False
 
+
 def clean_llm_response(response):
-    # Remove <|assistant|> tags
-    response = re.sub(r'<\|assistant\|>', '', response).strip()
+    # Split the response into lines
+    lines = response.split('\n')
     
-    # Check if the response starts with the question & removes question if so 
-    if re.match(r'^.*\?\s*\n', response):
-        # Split by first line break and take everything after it
-        parts = response.split('\n', 1)
-        if len(parts) > 1:
-            response = parts[1].strip()
+    # Filter out lines with the assistant tag
+    cleaned_lines = [line for line in lines if '<|assistant|>' not in line]
     
-    return response
+    # Take only the first line (typically the direct answer)
+    if cleaned_lines:
+        cleaned_response = cleaned_lines[0].strip()
+        return cleaned_response
+    
+    # Fallback if no lines remain
+    return response.strip()
 
 def handle_question(stream, rec, sample_rate, chunk_size, llm):
     while True:
         print("Ask question")
+        stream.stop_stream()  # Stop stream before robot speaks
         say("What is your question?")
-        time.sleep(1)
+        # time.sleep(1)
+        stream.start_stream()  # Start stream to listen for user's question
     
         text = listen_for_text(stream, rec, sample_rate, chunk_size)
         
         if not text:
             continue
             
-        if exit_check(text):
+        if exit_check(text, stream):
             return None 
         
         cleaned_text = clean_text(text)
@@ -182,13 +206,13 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
         
         # Clean up the response before saying it
         cleaned_response = clean_llm_response(response)
+        stream.stop_stream()  # Stop stream before robot speaks
         say(cleaned_response)
         print(response)  # Still print full response for debugging
-        
+        time.sleep(2)
         say("Would you like to ask another question?")
-        stream.stop_stream() # Stop audio recording 
-        time.sleep(1)
-        stream.start_stream() # Restart audio recording 
+        # time.sleep(1)
+        stream.start_stream()  # Restart stream to listen for user's response
         
         # Get user's response about asking another question
         follow_up_answer = False
@@ -199,7 +223,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
             if not follow_up:
                 continue
                 
-            if exit_check(follow_up):
+            if exit_check(follow_up, stream):
                 return None  # Exit signal
             
             cleaned_follow_up = clean_text(follow_up)
@@ -212,13 +236,21 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
                 follow_up_answer = False
                 break
             else:
-                say("I didn't understand. Do you want to ask another question? Please say yes or no.")
+                stream.stop_stream()  # Stop stream before robot speaks
+                say("I didn't understand. Do you want to ask another question?")
+                # time.sleep(0.5)
+                stream.start_stream()  # Restart stream to listen for user
+                time.sleep(0.5)
 
         # If user wants to ask another question, continue loop
         if follow_up_answer:
             continue  # Restart question loop
         else:
+            stream.stop_stream()  # Stop stream before robot speaks
             say("Thank you for your questions. Goodbye!")
+            # time.sleep(0.5)
+            stream.start_stream()  # Restart stream to listen for user
+            time.sleep(0.5)
             return None 
     return None
 
@@ -234,7 +266,7 @@ def main():
             if not text:
                 continue
                 
-            if exit_check(text):
+            if exit_check(text, stream):
                 break
                 
             if wake_word(stream, text):
@@ -246,7 +278,7 @@ def main():
                     if not text:
                         continue
                         
-                    if exit_check(text):
+                    if exit_check(text, stream):
                         return
 
                     cleaned_text = clean_text(text)
@@ -276,9 +308,12 @@ def main():
                                     rclpy.spin(nav_stack)
                                 else:
                                     nav_stack.get_logger().error("Navigation failed!")
+                            except KeyboardInterrupt:
+                                pass
                             finally:
-                                nav_stack.destroy_node()
-                                rclpy.shutdown()
+                                if rclpy.ok():
+                                    nav_stack.destroy_node()
+                                    rclpy.shutdown()
                             
                             classifier.reset_context()
                             break  # Return to wake word loop
