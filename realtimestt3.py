@@ -23,7 +23,7 @@ def clean_text(text):
 def wake_word(text):
     if text:
         cleaned_text = clean_text(text)
-        if "hey tori" in cleaned_text or "hey tory" in cleaned_text or "hey torry" in cleaned_text or "hitori" in cleaned_text:
+        if "hey tori" in cleaned_text or "hey tory" in cleaned_text or "hey torry" in cleaned_text or "hi tori" in cleaned_text or "hello tori" in cleaned_text:
             engine.say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
             engine.runAndWait()
             time.sleep(7)
