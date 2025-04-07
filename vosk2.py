@@ -4,10 +4,12 @@ import json
 import vosk
 import pyaudio
 import rclpy
+from rclpy.node import Node
 import logging
 from nav_classifier import RoomClassifier
 from llm_rag import LLM_RAG
 from navigation_stack import NavigationNode
+from goal_proximity import GoalProximityNode
 import re
 from text2digits import text2digits
 from pyt2s.services import stream_elements
@@ -22,7 +24,6 @@ t2d = text2digits.Text2Digits()
 classifier = RoomClassifier()
 llm = LLM_RAG()
 
-# Using text to speech library (pyt2s) 
 def say(text):
     try:
         data = stream_elements.requestTTS(text, stream_elements.Voice.Joanna.value)
@@ -86,7 +87,7 @@ def exit_check(text, stream):
         
         if any(word in cleaned_text.lower() for word in exit_words):
             stream.stop_stream()  # Stop stream before robot speaks
-            say("Goodbye!")
+            say("Goodbye! Say the wake phrase when you want to talk again.")
             # time.sleep(0.5)
             stream.start_stream()  # Restart stream to listen for user
             time.sleep(0.5)
@@ -126,7 +127,7 @@ def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
             continue
             
         if exit_check(text, stream):
-            return None
+            return False  # Return to wake word loop
         
         cleaned_text = clean_text(text)
         cleaned_text2 = convert_number_words(cleaned_text)
@@ -199,7 +200,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
             continue
             
         if exit_check(text, stream):
-            return None 
+            return False  # Return to wake word loop
         
         cleaned_text = clean_text(text)
         response = llm.generate_response(cleaned_text)
@@ -224,7 +225,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
                 continue
                 
             if exit_check(follow_up, stream):
-                return None  # Exit signal
+                return False  # Return to wake word loop
             
             cleaned_follow_up = clean_text(follow_up)
             
@@ -247,53 +248,57 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
             continue  # Restart question loop
         else:
             stream.stop_stream()  # Stop stream before robot speaks
-            say("Thank you for your questions. Goodbye!")
+            say("Thank you for your questions. Please say the wake phrase when you need me again!")
             # time.sleep(0.5)
             stream.start_stream()  # Restart stream to listen for user
             time.sleep(0.5)
-            return None 
-    return None
+            return False  # Return to wake word loop
+    
+    return False  # Return to wake word loop
 
 def main():
     vosk_model_path = "./vosk-model-small-en-us-0.15"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:
-        while True: #wake word loop
-            print("Please speak...")
+        while True: # Main wake word loop
+            print("Listening for wake word...")
             text = listen_for_text(stream, rec, sample_rate, chunk_size)
             
             if not text:
                 continue
                 
             if exit_check(text, stream):
-                break
+                continue  # Return to wake word loop
                 
             if wake_word(stream, text):
                 # Enter command loop
                 while True:
-                    print("Please speak...")
+                    print("Waiting for command...")
                     text = listen_for_text(stream, rec, sample_rate, chunk_size)
                     
                     if not text:
                         continue
                         
                     if exit_check(text, stream):
-                        return
+                        break  # Return to wake word loop
 
                     cleaned_text = clean_text(text)
                     
                     if "navigation" in cleaned_text: 
                         nav_result = handle_navigation(stream, rec, sample_rate, chunk_size, classifier)
                         
-                        if nav_result is None:  # Exit word said 
-                            return
+                        if nav_result is False:  # Exit word said or navigation failed
+                            break  # Return to wake word loop
                         
                         if nav_result and nav_result[0]:  # Successful navigation
                             room_num, floor = nav_result[1], nav_result[2]
                             
-                            rclpy.init()
+                            if not rclpy.ok():
+                                rclpy.init(args=None)
+                    
                             nav_stack = NavigationNode()
+                            proximity_node = None 
                             
                             with open('current_navigation.json', 'w') as f:
                                 json.dump({
@@ -303,40 +308,76 @@ def main():
                                 }, f)
                             
                             try:
+                                stream.stop_stream()
+                                say(f"Starting navigation to room {room_num} on floor {floor}.")
+                                stream.start_stream()
                                 success = nav_stack.navigate(room_num, floor)
+                                
                                 if success:
-                                    rclpy.spin(nav_stack)
+                                    proximity_node = GoalProximityNode(audio_stream=stream)
+                                    
+                                    max_wait_time = 120  # Maximum time to wait in seconds
+                                    start_time = time.time()
+                                    
+                                    # Process messages until arrival or timeout
+                                    while (not proximity_node.arrived) and (time.time() - start_time < max_wait_time):
+                                        rclpy.spin_once(proximity_node, timeout_sec=0.1)
+                                        time.sleep(0.1)
+                                    
+                                    if proximity_node.arrived:
+                                        time.sleep(2)
+                                        stream.stop_stream()
+                                        say("We have arrived at your destination!")
+                                        stream.start_stream()
+                                    else:
+                                        stream.stop_stream()
+                                        say("Please wait for the robot to reach your destination.")
+                                        stream.start_stream()
+                                    
                                 else:
+                                    stream.stop_stream()
+                                    say("Navigation failed. Please try again.")
+                                    stream.start_stream()
                                     nav_stack.get_logger().error("Navigation failed!")
-                            except KeyboardInterrupt:
-                                pass
+                            except Exception as e:
+                                stream.stop_stream()
+                                say(f"Error during navigation: {str(e)}")
+                                stream.start_stream()
+                                print(f"Navigation error: {e}")
                             finally:
+                                # Cleanup
                                 if rclpy.ok():
-                                    nav_stack.destroy_node()
+                                    # Safety check to ensure nav_stack exists before destroying it 
+                                    if 'nav_stack' in locals() and nav_stack is not None:
+                                        nav_stack.destroy_node()
+                                    if proximity_node is not None:
+                                        proximity_node.destroy_node()
                                     rclpy.shutdown()
-                            
-                            classifier.reset_context()
-                            break  # Return to wake word loop
-                        
-                        if not nav_result:  # Restart after 3 attempts
-                            break  # Return to wake word loop
+                                
+                                classifier.reset_context()
+                                stream.stop_stream()
+                                say("Please say the wake phrase when you need me again!")
+                                stream.start_stream()
+                            break
                     
                     elif "question" in cleaned_text:
-                        question_result = handle_question(stream, rec, sample_rate, chunk_size, llm)
-                        
-                        if question_result is None:  # Either user said exit word or doesn't want more questions
-                            return  # Exit the program completely
-                        
-                        break  # Return to wake word loop
-                    
+                        # Handle questions and return to wake word loop afterward
+                        handle_question(stream, rec, sample_rate, chunk_size, llm)
+                        break
+                    else:
+                        stream.stop_stream()
+                        say("I didn't understand. Please say 'navigation command' or 'question'.")
+                        stream.start_stream()
                     time.sleep(0.5)
     
     except KeyboardInterrupt:
         print("Keyboard Interrupt")
-    finally:
+    finally: # Clean shutdown 
         stream.stop_stream()
         stream.close()
         pyaudio_instance.terminate()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

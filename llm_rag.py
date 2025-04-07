@@ -112,7 +112,7 @@ class LLM_RAG:
         # Prompt engineering 
         prompt = f"""Context: {context}
 Question: {query_text}
-Instructions: Only answer questions about Unity Hall. Answer without using lists or numbers. Provide a natural flowing response. If you are not sure, just say you don't know.
+Instructions: Only answer questions about Unity Hall. If you are not sure of the answer and it is not in the dataset, just say you don't know. Do not reference other schools or universities outside of Worcester Polytechnic Institute (WPI). If asked about other universities, say you do not know. Answer directly without using lists or numbers. Provide a natural flowing response. If you are not sure, just say you don't know.
 Answer:"""
         
         # Generate response
