@@ -7,7 +7,8 @@ import rclpy
 from rclpy.node import Node
 import logging
 from nav_classifier import RoomClassifier
-from llm_rag import LLM_RAG
+from llm_rag import LLM_RAG 
+from rag_system import RAG 
 from navigation_stack import NavigationNode
 from goal_proximity import GoalProximityNode
 import re
@@ -16,13 +17,23 @@ from pyt2s.services import stream_elements
 from pydub import AudioSegment
 from io import BytesIO
 import simpleaudio as sa
+import random 
 
 # Configure logging
 logging.getLogger('vosk').setLevel(logging.ERROR)
 
 t2d = text2digits.Text2Digits()
 classifier = RoomClassifier()
-llm = LLM_RAG()
+# Initialize with the new LLM_RAG implementation
+llm = RAG(
+    DATA_FILES_DIR="data_files",  # Directory containing your data files
+    EMBEDDING_MODEL="nomic-embed-text:latest",
+    LLM_MODEL="llama3.2:latest",
+    OLLAMA_BASE_URL="http://localhost:11434",
+    CHROMA_PERSIST_DIR="chroma_db",
+    COLLECTION_NAME="unity_hall_data",
+    N_RESULTS=5  # Number of relevant chunks to retrieve
+)
 
 def say(text):
     try:
@@ -88,12 +99,10 @@ def exit_check(text, stream):
         if any(word in cleaned_text.lower() for word in exit_words):
             stream.stop_stream()  # Stop stream before robot speaks
             say("Goodbye! Say the wake phrase when you want to talk again.")
-            # time.sleep(0.5)
             stream.start_stream()  # Restart stream to listen for user
             time.sleep(0.5)
             return True
     return False
-
 
 def wake_word(stream, text):
     if text:
@@ -101,7 +110,7 @@ def wake_word(stream, text):
         wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori", "katori"]
         
         if any(phrase in cleaned_text for phrase in wake_phrases):
-            stream.stop_stream() # Stop audio recording (so speech to text lib does not pick up Tori's words)
+            stream.stop_stream() # Stop audio recording
             say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
             stream.start_stream() # Restart audio recording 
             return True
@@ -114,9 +123,9 @@ def convert_number_words(sentence):
         return f"Error: {e}"
 
 def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
+    # Implementation remains the same as original
     stream.stop_stream()
     say("Where do you want to go?")
-    # time.sleep(1)
     stream.start_stream()
     
     MAX_ATTEMPTS = 3
@@ -171,51 +180,44 @@ def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
     return False
 
 
-def clean_llm_response(response):
-    # Split the response into lines
-    lines = response.split('\n')
-    
-    # Filter out lines with the assistant tag
-    cleaned_lines = [line for line in lines if '<|assistant|>' not in line]
-    
-    # Take only the first line (typically the direct answer)
-    if cleaned_lines:
-        cleaned_response = cleaned_lines[0].strip()
-        return cleaned_response
-    
-    # Fallback if no lines remain
-    return response.strip()
 
 def handle_question(stream, rec, sample_rate, chunk_size, llm):
+    # Phrases to fill empty space between user asking question and LLM response 
+    random_phrases = [
+        "Let me think about that for a moment. Please wait.",
+        "I'm searching my database for that information. Please wait a moment.",
+        "That's a great question. Let me think of an answer for you! ",
+        "Give me a moment to think of a response for you! ",
+        "Thanks for your question! Let me think of a response for you.", 
+    ]
+    
     while True:
         print("Ask question")
-        stream.stop_stream()  # Stop stream before robot speaks
+        stream.stop_stream()
         say("What is your question?")
-        # time.sleep(1)
-        stream.start_stream()  # Start stream to listen for user's question
+        stream.start_stream()
     
         text = listen_for_text(stream, rec, sample_rate, chunk_size)
-        
         if not text:
             continue
             
         if exit_check(text, stream):
-            return False  # Return to wake word loop
+            return False
         
         cleaned_text = clean_text(text)
+        print(f"Processing question: '{cleaned_text}'")
+        
+        stream.stop_stream()
+        say(random.choice(random_phrases))
+        
         response = llm.generate_response(cleaned_text)
+        print(f"Generated response: {response}")
         
-        # Clean up the response before saying it
-        cleaned_response = clean_llm_response(response)
-        stream.stop_stream()  # Stop stream before robot speaks
-        say(cleaned_response)
-        print(response)  # Still print full response for debugging
-        time.sleep(2)
+        say(response)
+        time.sleep(1)
         say("Would you like to ask another question?")
-        # time.sleep(1)
-        stream.start_stream()  # Restart stream to listen for user's response
+        stream.start_stream()
         
-        # Get user's response about asking another question
         follow_up_answer = False
         MAX_ATTEMPTS = 3
         for _ in range(MAX_ATTEMPTS):
@@ -225,11 +227,10 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
                 continue
                 
             if exit_check(follow_up, stream):
-                return False  # Return to wake word loop
+                return False
             
             cleaned_follow_up = clean_text(follow_up)
             
-            # Check if user wants to ask another question
             if any(word in cleaned_follow_up for word in ["yes", "yeah", "sure", "okay", "yep", "yup"]):
                 follow_up_answer = True
                 break
@@ -237,24 +238,21 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
                 follow_up_answer = False
                 break
             else:
-                stream.stop_stream()  # Stop stream before robot speaks
+                stream.stop_stream()
                 say("I didn't understand. Do you want to ask another question?")
-                # time.sleep(0.5)
-                stream.start_stream()  # Restart stream to listen for user
+                stream.start_stream()
                 time.sleep(0.5)
 
-        # If user wants to ask another question, continue loop
         if follow_up_answer:
-            continue  # Restart question loop
+            continue
         else:
-            stream.stop_stream()  # Stop stream before robot speaks
+            stream.stop_stream()
             say("Thank you for your questions. Please say the wake phrase when you need me again!")
-            # time.sleep(0.5)
-            stream.start_stream()  # Restart stream to listen for user
+            stream.start_stream()
             time.sleep(0.5)
-            return False  # Return to wake word loop
+            return False
     
-    return False  # Return to wake word loop
+    return False
 
 def main():
     vosk_model_path = "./vosk-model-small-en-us-0.15"
@@ -287,7 +285,6 @@ def main():
                     
                     if "navigation" in cleaned_text: 
                         nav_result = handle_navigation(stream, rec, sample_rate, chunk_size, classifier)
-                        
                         if nav_result is False:  # Exit word said or navigation failed
                             break  # Return to wake word loop
                         
@@ -338,7 +335,7 @@ def main():
                                     stream.stop_stream()
                                     say("Navigation failed. Please try again.")
                                     stream.start_stream()
-                                    nav_stack.get_logger().error("Navigation failed!")
+                                    # nav_stack.get_logger().error("Navigation failed!")
                             except Exception as e:
                                 stream.stop_stream()
                                 say(f"Error during navigation: {str(e)}")
@@ -361,7 +358,7 @@ def main():
                             break
                     
                     elif "question" in cleaned_text:
-                        # Handle questions and return to wake word loop afterward
+                        # Handle questions with the new LLM_RAG implementation
                         handle_question(stream, rec, sample_rate, chunk_size, llm)
                         break
                     else:
