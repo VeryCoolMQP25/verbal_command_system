@@ -100,7 +100,7 @@ class RAG:
                         )
         print("Indexing complete.")
     
-    def limit_response(self, text, max_sentences=3):
+    def limit_response(self, text, max_sentences=4):
         """Limit response to a specific number of sentences."""
         # Split on sentence endings followed by space and capital letter
         sentences = re.split(r'[.!?]\s+(?=[A-Z])', text)
