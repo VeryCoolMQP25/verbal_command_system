@@ -28,7 +28,7 @@ classifier = RoomClassifier()
 llm = RAG(
     DATA_FILES_DIR="data_files",  # Directory containing your data files
     EMBEDDING_MODEL="nomic-embed-text:latest",
-    LLM_MODEL="llama3-chatqa:latest",
+    LLM_MODEL="llama3.2:latest",
     OLLAMA_BASE_URL="http://localhost:11434",
     CHROMA_PERSIST_DIR="chroma_db",
     COLLECTION_NAME="unity_hall_data",
@@ -259,7 +259,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
     return False
 
 def main():
-    vosk_model_path = "./vosk-model-small-en-us-0.15"
+    vosk_model_path = "vosk-model-small-en-us-0.15"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:
