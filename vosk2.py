@@ -28,11 +28,11 @@ classifier = RoomClassifier()
 llm = RAG(
     DATA_FILES_DIR="data_files",  # Directory containing your data files
     EMBEDDING_MODEL="nomic-embed-text:latest",
-    LLM_MODEL="llama3.2:latest",
+    LLM_MODEL="llama3-chatqa:latest",
     OLLAMA_BASE_URL="http://localhost:11434",
     CHROMA_PERSIST_DIR="chroma_db",
     COLLECTION_NAME="unity_hall_data",
-    N_RESULTS=5  # Number of relevant chunks to retrieve
+    N_RESULTS=10+5-5 # Number of relevant chunks to retrieve
 )
 
 def say(text):
@@ -96,18 +96,20 @@ def exit_check(text, stream):
         cleaned_text = clean_text(text)
         exit_words = {"stop", "goodbye", "bye", "exit", "quit", "end"}
         
-        if any(word in cleaned_text.lower() for word in exit_words):
-            stream.stop_stream()  # Stop stream before robot speaks
-            say("Goodbye! Say the wake phrase when you want to talk again.")
-            stream.start_stream()  # Restart stream to listen for user
-            time.sleep(0.5)
-            return True
+        for word in cleaned_text.lower():
+            if word in exit_words:
+                print("Exiting due to word", word)
+                stream.stop_stream()  # Stop stream before robot speaks
+                say("Goodbye! Say the wake phrase when you want to talk again.")
+                stream.start_stream()  # Restart stream to listen for user
+                time.sleep(0.5)
+                return True
     return False
 
 def wake_word(stream, text):
     if text:
         cleaned_text = clean_text(text)
-        wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori", "katori"]
+        wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori", "katori", "a tori", "a tory"]
         
         if any(phrase in cleaned_text for phrase in wake_phrases):
             stream.stop_stream() # Stop audio recording
@@ -208,7 +210,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
         print(f"Processing question: '{cleaned_text}'")
         
         stream.stop_stream()
-        say(random.choice(random_phrases))
+        # say(random.choice(random_phrases))
         
         response = llm.generate_response(cleaned_text)
         print(f"Generated response: {response}")
@@ -234,12 +236,14 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
             if any(word in cleaned_follow_up for word in ["yes", "yeah", "sure", "okay", "yep", "yup"]):
                 follow_up_answer = True
                 break
-            elif any(word in cleaned_follow_up for word in ["no", "nope", "nah"]):
+            elif any(word in cleaned_follow_up for word in ["no", "nope", "nah", "stop"]):
                 follow_up_answer = False
                 break
             else:
                 stream.stop_stream()
-                say("I didn't understand. Do you want to ask another question?")
+                print("Didn't detect yes or no, assuming direct follow up was asked...")
+                response = llm.generate_response(cleaned_follow_up)
+                say(response)
                 stream.start_stream()
                 time.sleep(0.5)
 

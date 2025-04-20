@@ -1,4 +1,4 @@
-
+This is the bio for Professor Nitin Sanket, currently a Professor at WPI.
 Ph.D. Computer Science, University of Maryland, College Park, MD, 2021
 M.S. Robotics, University of Pennsylvania, Philadelphia, PA, 2016
 B.E., Electronics and Communication, M. S. Ramaiah Institute of Technology, Bangalore, India, 2013
@@ -6,4 +6,3 @@ B.E., Electronics and Communication, M. S. Ramaiah Institute of Technology, Bang
 I envision a future where we are surrounded by small robots doing various tasks such as pollinating flowers, searching for survivors, carrying payloads, entertaining us and even as our personal pets/companions. To advance autonomy on these tiny mobile robots with on-board sensing and computation, we draw inspiration from nature’s experts – insects, birds and other small beings. My doctoral work culminated in building the world’s first prototype of a RoboBeeHive that involved hummingbird-sized nano-quadrotors capable of pollinating flowers, where all the sensing and computation are performed on-board. My overarching goal to advance autonomy of small mobile robots is built upon four major thrusts: Active perception, interactive perception, novel perception and novel sensing. All these thrusts embrace the perception and action synergy pair to simplify perception problems by controlling one’s movement.  
 
 Active perception utilizes the movement of the agent or a part to simplify perception problems. Interactive perception takes it one step further by selectively interacting with the environment to obtain selective cues for better understanding. Novel perception involves building mathematical models based on statistics of data such as neural network uncertainty to solve problems in a minimal manner. For example, one could look at uncertainty of optical flow to dodge obstacles rather than building a depth map, thereby improving agility. Finally, novel sensing involves formulating solutions to robotics problems using novel sensors such as event cameras or building passive structures such as coded apertures to view the world in a “new way” that can enable solving robotics problems in a better way. 
-

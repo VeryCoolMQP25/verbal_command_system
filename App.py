@@ -3,7 +3,9 @@ from flask_cors import CORS
 import subprocess
 import json
 import os
-
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 app = Flask(__name__)
 CORS(app)
 
@@ -52,4 +54,4 @@ def navigation_status():
         })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)

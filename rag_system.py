@@ -4,12 +4,13 @@ import requests
 import chromadb
 import time
 import re
+from tqdm import tqdm
 
 class RAG:
     def __init__(self, 
                  DATA_FILES_DIR="data_files",
                  EMBEDDING_MODEL="nomic-embed-text:latest",
-                 LLM_MODEL="llama3.2:latest",
+                 LLM_MODEL="llama3-chatqa:latest",
                  OLLAMA_BASE_URL="http://localhost:11434",
                  CHROMA_PERSIST_DIR="chroma_db",
                  COLLECTION_NAME="data_files_collection",
@@ -83,7 +84,7 @@ class RAG:
             return
         
         print(f"Indexing {len(files)} files...")
-        for filepath in files:
+        for filepath in tqdm(files):
             filename = os.path.basename(filepath)
             content = self.read_rst_file(filepath)
             if content:
@@ -137,14 +138,14 @@ class RAG:
         )
         
         if not results or not results['documents'] or not results['documents'][0]:
-            return "I don't have enough information to answer this question based on the provided context."
+            return "I don't have enough information to answer this question"
         
         # Compile the context from retrieved documents
         retrieved_chunks = results['documents'][0]
         context = "\n\n".join(retrieved_chunks)
         
         # Formulate the prompt for the LLM
-        prompt = f"""You are Tori, a helpful tour guide robot in Unity Hall. Use the following context to answer the user's question. If the answer cannot be found in the context, explicitly state "I don't have enough information to answer this question based on the provided context." Be concise but informative. Only answer in one or two concise sentences. Do not end with questions.
+        prompt = f"""You are Tori, a helpful tour guide robot in Unity Hall. Use the following context to answer the user's question. If the answer cannot be found in the context, explicitly state "I don't have enough information to answer this question." Be concise but informative. Only answer in one or two concise sentences. Do not end with questions.
 
 Context:
 {context}
