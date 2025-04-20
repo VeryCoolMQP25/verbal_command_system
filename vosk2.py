@@ -86,11 +86,13 @@ def listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=Queue(), time
             if rec.AcceptWaveform(data):
                 result = json.loads(rec.Result())
                 text = result.get('text', '').strip()
-        else:
+        if not len(text):
             if not messageQ.empty():
-                text = messageQ.get()
-            
-        if len(text):
+                print("Queue is not empty!")
+                qdat = messageQ.get()
+                print("Retrieved: {} from queue".format(qdat))
+                return qdat
+        else:
             return text
     return None
 
