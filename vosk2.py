@@ -18,6 +18,7 @@ from pydub import AudioSegment
 from io import BytesIO
 import simpleaudio as sa
 import random 
+from multiprocessing import Queue
 
 # Configure logging
 logging.getLogger('vosk').setLevel(logging.ERROR)
@@ -74,21 +75,23 @@ def initialize_vosk_recognizer(model_path, sample_rate=16000, chunk_size=4000):
     )
     return pyaudio_instance, stream, rec, sample_rate, chunk_size
 
-def listen_for_text(stream, rec, sample_rate, chunk_size, timeout=None):
+def listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=Queue(), timeout=None):
+    text = ""
     start_time = time.time()
     
     while timeout is None or time.time() - start_time < timeout:
         data = stream.read(chunk_size, exception_on_overflow=False)
         
-        if len(data) == 0:
-            continue
-        
-        if rec.AcceptWaveform(data):
-            result = json.loads(rec.Result())
-            text = result.get('text', '').strip()
+        if len(data) != 0:      
+            if rec.AcceptWaveform(data):
+                result = json.loads(rec.Result())
+                text = result.get('text', '').strip()
+        else:
+            if not messageQ.empty():
+                text = messageQ.get()
             
-            if text:
-                return text
+        if len(text):
+            return text
     return None
 
 def exit_check(text, stream):
@@ -258,15 +261,16 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
     
     return False
 
-def main():
+def main(messageQ):
+    print("Vosk main loop started, Queue object: ",messageQ)
     vosk_model_path = "vosk-model-small-en-us-0.15"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:
         while True: # Main wake word loop
             print("Listening for wake word...")
-            text = listen_for_text(stream, rec, sample_rate, chunk_size)
-            
+            text = listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=messageQ)
+                    
             if not text:
                 continue
                 
@@ -381,4 +385,4 @@ def main():
             rclpy.shutdown()
 
 if __name__ == "__main__":
-    main()
+    main(Queue())

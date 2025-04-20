@@ -5,16 +5,10 @@ import chromadb
 import time
 import re
 from tqdm import tqdm
+import subprocess
 
 class RAG:
-    def __init__(self, 
-                 DATA_FILES_DIR="data_files",
-                 EMBEDDING_MODEL="nomic-embed-text:latest",
-                 LLM_MODEL="llama3-chatqa:latest",
-                 OLLAMA_BASE_URL="http://localhost:11434",
-                 CHROMA_PERSIST_DIR="chroma_db",
-                 COLLECTION_NAME="data_files_collection",
-                 N_RESULTS=10):
+    def __init__(self, DATA_FILES_DIR, EMBEDDING_MODEL, LLM_MODEL, OLLAMA_BASE_URL, CHROMA_PERSIST_DIR, COLLECTION_NAME, N_RESULTS):
         """Initialize the LLM_RAG class with configurable parameters."""
         # Configuration
         self.DATA_FILES_DIR = DATA_FILES_DIR
@@ -27,7 +21,10 @@ class RAG:
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
         #self.index_files()
-    
+        print("Starting ollama docker container...",end='\t')
+        subprocess.run(['jetson-containers', 'run', '--detach', '--name', 'ollama', 'dustynv/ollama:r36.4.0'])
+        print("Done")
+        
     def read_rst_file(self, filepath):
         """Reads a file and returns its content."""
         try:

@@ -1,38 +1,26 @@
+#!/usr/bin/python3
 from flask import Flask, jsonify
 from flask_cors import CORS
 import subprocess
 import json
 import os
 import logging
+from vosk2 import main as vosk
+from multiprocessing import Process, Queue
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 app = Flask(__name__)
 CORS(app)
+messageQ = Queue()
 
 @app.route('/api/run-script', methods=['GET'])
 def run_script():
-    try:
-        subprocess.run(['python3', 'script.py'], check=True)
-        
-        # Check if a navigation has been started
-        if os.path.exists('current_navigation.json'):
-            with open('current_navigation.json', 'r') as f:
-                navigation_data = json.load(f)
-                
-            return jsonify({
-                "message": "Script executed successfully!",
-                "output": f"Navigating to {navigation_data['room']} on floor {navigation_data['floor']}",
-                "room": navigation_data['room'],
-                "floor": navigation_data['floor']
-            })
-        else:
-            return jsonify({
-                "message": "Script executed, but no navigation data found",
-                "output": "No active navigation"
-            })
-            
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    print("Sending wake to messageQ")
+    messageQ.put("hey tori")
+    return jsonify({
+        "message": "Wake invoked",
+        "output": "No active navigation"
+    })
 
 
 @app.route('/api/navigation-status', methods=['GET'])
@@ -54,4 +42,7 @@ def navigation_status():
         })
 
 if __name__ == '__main__':
+    print("Starting...")
+    voskInstance = Process(target=vosk, args=[messageQ])
+    voskInstance.start()
     app.run(debug=False)
