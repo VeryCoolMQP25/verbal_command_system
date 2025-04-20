@@ -5,18 +5,15 @@ import subprocess
 import json
 import os
 import logging
-from vosk2 import main as vosk
-from multiprocessing import Process, Queue
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 app = Flask(__name__)
 CORS(app)
-messageQ = Queue()
+
 
 @app.route('/api/run-script', methods=['GET'])
 def run_script():
-    print("Sending wake to messageQ")
-    messageQ.put("hey tori")
+    
     return jsonify({
         "message": "Wake invoked",
         "output": "No active navigation"
@@ -43,6 +40,5 @@ def navigation_status():
 
 if __name__ == '__main__':
     print("Starting...")
-    voskInstance = Process(target=vosk, args=[messageQ])
-    voskInstance.start()
+    subprocess.run(['python3', 'script.py'], check=True)
     app.run(debug=False)

@@ -33,7 +33,7 @@ llm = RAG(
     OLLAMA_BASE_URL="http://localhost:11434",
     CHROMA_PERSIST_DIR="chroma_db",
     COLLECTION_NAME="unity_hall_data",
-    N_RESULTS=10+5-5 # Number of relevant chunks to retrieve
+    N_RESULTS=5 # Number of relevant chunks to retrieve
 )
 
 def say(text):

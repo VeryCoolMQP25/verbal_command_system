@@ -10,6 +10,9 @@ import subprocess
 class RAG:
     def __init__(self, DATA_FILES_DIR, EMBEDDING_MODEL, LLM_MODEL, OLLAMA_BASE_URL, CHROMA_PERSIST_DIR, COLLECTION_NAME, N_RESULTS):
         """Initialize the LLM_RAG class with configurable parameters."""
+        print("Starting ollama docker container...",end='\t')
+        subprocess.run(['jetson-containers', 'run', '--detach', '--name', 'ollama', 'dustynv/ollama:r36.4.0'])
+        print("Done")
         # Configuration
         self.DATA_FILES_DIR = DATA_FILES_DIR
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
@@ -20,10 +23,7 @@ class RAG:
         self.N_RESULTS = N_RESULTS
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
-        #self.index_files()
-        print("Starting ollama docker container...",end='\t')
-        subprocess.run(['jetson-containers', 'run', '--detach', '--name', 'ollama', 'dustynv/ollama:r36.4.0'])
-        print("Done")
+        self.index_files()
         
     def read_rst_file(self, filepath):
         """Reads a file and returns its content."""
@@ -124,15 +124,21 @@ class RAG:
     def generate_response(self, query, max_sentences=3):
         """Generate a response to the query using RAG."""
         # Get embedding for the query
+        print("Generating embeddings for query...",end='\t')
         query_embedding = self.get_embedding(query)
+        print("Done")
         if not query_embedding:
             return "I'm sorry, I couldn't process your question."
         
         # Search ChromaDB for relevant documents
+        print("Searching ChromaDB...")
+        import pdb
+        pdb.set_trace()
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=self.N_RESULTS
         )
+        print("Done")
         
         if not results or not results['documents'] or not results['documents'][0]:
             return "I don't have enough information to answer this question"
@@ -156,10 +162,11 @@ Question: {query}"""
             "prompt": prompt,
             "stream": False
         }
-        
-        response = requests.post(url, json=data)
+        print("Sending request to LLM for generation...",end='\t')
+        response = requests.post(url, json=data, timeout=30)
         response.raise_for_status()
         result = response.json()
+        print("Done")
         answer = result['response']
         
         if answer: 
