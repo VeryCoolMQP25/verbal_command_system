@@ -33,7 +33,7 @@ llm = RAG(
     OLLAMA_BASE_URL="http://localhost:11434",
     CHROMA_PERSIST_DIR="chroma_db",
     COLLECTION_NAME="unity_hall_data",
-    N_RESULTS=5 # Number of relevant chunks to retrieve
+    N_RESULTS=10 # Number of relevant chunks to retrieve
 )
 
 def say(text):
@@ -265,7 +265,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
 
 def main(messageQ):
     print("Vosk main loop started, Queue object: ",messageQ)
-    vosk_model_path = "vosk-model-small-en-us-0.15"
+    vosk_model_path = "./vosk-model-small-en-us-0.15"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:

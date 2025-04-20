@@ -23,7 +23,7 @@ class RAG:
         self.N_RESULTS = N_RESULTS
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
-        self.index_files()
+        # self.index_files()
         
     def read_rst_file(self, filepath):
         """Reads a file and returns its content."""
@@ -132,8 +132,6 @@ class RAG:
         
         # Search ChromaDB for relevant documents
         print("Searching ChromaDB...")
-        import pdb
-        pdb.set_trace()
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=self.N_RESULTS
