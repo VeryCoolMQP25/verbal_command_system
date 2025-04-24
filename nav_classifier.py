@@ -292,7 +292,7 @@ if __name__ == "__main__":
         # "Navigate to the curtain area",  #will automatically use second floor 
         # "Navigate to the restrooms", #unknown floor 
         # "Can you show me where room 156 is?",
-        "Navigate to unity 500.", #buggy, need to rdebug 5th floor 
+        "Navigate to the lounge on the fifth floor.", #buggy, need to rdebug 5th floor 
         # "Take me to tech suite 316 please.", 
         # "Take me to blah blah blah", #doesn't exist 
         "Take me to the pear lab on the second floor", 

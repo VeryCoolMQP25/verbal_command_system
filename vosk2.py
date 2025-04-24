@@ -220,7 +220,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
         response = llm.generate_response(cleaned_text)
         print(f"Generated response: {response}")
         
-        say(response)
+        # say(response)
         time.sleep(1)
         say("Would you like to ask another question?")
         stream.start_stream()
@@ -246,11 +246,9 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
                 break
             else:
                 stream.stop_stream()
-                print("Didn't detect yes or no, assuming direct follow up was asked...")
-                response = llm.generate_response(cleaned_follow_up)
-                say(response)
+                say("I didn't get that, please say yes or no.")
                 stream.start_stream()
-                time.sleep(0.5)
+                continue
 
         if follow_up_answer:
             continue
