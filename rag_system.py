@@ -19,7 +19,7 @@ class RAG:
         self.N_RESULTS = N_RESULTS
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
-        self.index_files()
+        # self.index_files()
         
     def read_rst_file(self, filepath):
         """Reads a file and returns its content."""
@@ -126,12 +126,12 @@ class RAG:
             return "I'm sorry, I couldn't process your question."
         
         # Search ChromaDB for relevant documents
-        print("Searching ChromaDB...")
+        print("Searching ChromaDB...", end='\t')
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=self.N_RESULTS
         )
-        print("Done")
+        print("Done (got {} records)".format(len(results)))
         
         if not results or not results['documents'] or not results['documents'][0]:
             return "I don't have enough information to answer this question"
@@ -142,11 +142,10 @@ class RAG:
         
         # Formulate the prompt for the LLM
         prompt = f"""You are Tori, a helpful tour guide robot in Unity Hall. Use the following context to answer the user's question. If the answer cannot be found in the context, explicitly state "I don't have enough information to answer this question." Be concise but informative. Only answer in one or two concise sentences. Do not end with questions.
-        Your pronouns are she/her. You were created as an MQP robotics project as part of the PeAR lab at WPI. Your creators are named Suki Kushwaha, Jacob Ellington, Vivek Voleti, and Aashi Goel.
-        You are a RAG model. Don't explicitly state "in the context..." in your response. 
+        You were created as an MQP robotics project. Your creators are named Suki Kushwaha, Jacob Ellington, Vivek Voleti, and Aashi Goel.
+        Format your output in a way that is suited for text-to-speech output. Don't explicitly state "in the context..." or "in the provided documents..." in your response. 
 Context:
 {context}
-
 Question: {query}"""
         
         # Query the LLM
@@ -173,26 +172,41 @@ Question: {query}"""
             return "I'm sorry, I'm having trouble processing your question right now." 
 
 if __name__ == "__main__":
-    llm = RAG(
-        DATA_FILES_DIR="data_files",  # Directory containing your data files
-        EMBEDDING_MODEL="nomic-embed-text:latest",
-        LLM_MODEL="llama3-chatqa:latest",
-        OLLAMA_BASE_URL="http://localhost:11434",
-        CHROMA_PERSIST_DIR="chroma_db",
-        COLLECTION_NAME="unity_hall_data",
-        N_RESULTS=10 # Number of relevant chunks to retrieve
-    )
-    test_phrases = [
-        "who are you?", 
-        "how many labs are in unity hall?"
-    ]
-    for phrase in test_phrases:
-        response = llm.generate_response(phrase)
-        print(f"Generated response: {response}")
+    llms = [
+        RAG(
+                DATA_FILES_DIR="data_files",  # Directory containing your data files
+                EMBEDDING_MODEL="nomic-embed-text:latest",
+                LLM_MODEL="llama3-chatqa:latest",
+                OLLAMA_BASE_URL="http://localhost:11434",
+                CHROMA_PERSIST_DIR="chroma_db",
+                COLLECTION_NAME="unity_hall_data",
+                N_RESULTS=10),
+        RAG(
+                DATA_FILES_DIR="data_files",  # Directory containing your data files
+                EMBEDDING_MODEL="nomic-embed-text:latest",
+                LLM_MODEL="gemma3:4b",
+                OLLAMA_BASE_URL="http://localhost:11434",
+                CHROMA_PERSIST_DIR="chroma_db",
+                COLLECTION_NAME="unity_hall_data",
+                N_RESULTS=10 # Number of relevant chunks to retrieve
+            ),
+        RAG(
+                DATA_FILES_DIR="data_files",  # Directory containing your data files
+                EMBEDDING_MODEL="nomic-embed-text:latest",
+                LLM_MODEL="gemma3:12b",
+                OLLAMA_BASE_URL="http://localhost:11434",
+                CHROMA_PERSIST_DIR="chroma_db",
+                COLLECTION_NAME="unity_hall_data",
+                N_RESULTS=10)]
     while True:
         try:
-            q = input("\nEnter question: ")
-        except KeyboardInterrupt:
+            q = input("\n\nEnter question: ")
+        except (KeyboardInterrupt, EOFError):
             print("Goodbye")
             exit()
-        print("Response: ",llm.generate_response(q))
+        for model in llms:
+            print()
+            print(f"{model.LLM_MODEL}".center(os.get_terminal_size()[0], '='))
+            start = time.time()
+            print("\nResponse: ",model.generate_response(q))
+            print(f"Finished in {round(time.time() - start, 2)} seconds.")
