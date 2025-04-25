@@ -1,3 +1,6 @@
 [submodule "faiss"]
 	path = faiss
 	url = https://github.com/facebookresearch/faiss
+[submodule "TTS"]
+	path = TTS
+	url = https://github.com/coqui-ai/TTS

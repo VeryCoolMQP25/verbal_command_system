@@ -1,18 +1,11 @@
 import time
-import string
 import json
+import string
 import vosk
-import pyaudio
-import rclpy
-from rclpy.node import Node
 import logging
-from nav_classifier import RoomClassifier
-from llm_rag import LLM_RAG 
 from rag_system import RAG 
-from navigation_stack import NavigationNode
-from goal_proximity import GoalProximityNode
+import pyaudio
 import re
-from text2digits import text2digits
 from pyt2s.services import stream_elements
 from pydub import AudioSegment
 from io import BytesIO
@@ -22,10 +15,7 @@ from multiprocessing import Queue
 
 # Configure logging
 logging.getLogger('vosk').setLevel(logging.ERROR)
-
-t2d = text2digits.Text2Digits()
-classifier = RoomClassifier()
-# Initialize with the new LLM_RAG implementation
+#  Initialize with the new LLM_RAG implementation
 llm = RAG(
     DATA_FILES_DIR="data_files",  # Directory containing your data files
     EMBEDDING_MODEL="nomic-embed-text:latest",
@@ -118,74 +108,11 @@ def wake_word(stream, text):
         
         if any(phrase in cleaned_text for phrase in wake_phrases):
             stream.stop_stream() # Stop audio recording
-            say("Hi, I'm Tori, a tour guide robot in Unity Hall. Would you like to say a navigation command or ask me a question?")
+            say("Hi, I'm Tori, a tour guide robot for Unity Hall. Go ahead and ask me a question.")
+            print("finished saying")
             stream.start_stream() # Restart audio recording 
             return True
     return False
-
-def convert_number_words(sentence):
-    try:
-        return t2d.convert(sentence)
-    except Exception as e:
-        return f"Error: {e}"
-
-def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
-    # Implementation remains the same as original
-    stream.stop_stream()
-    say("Where do you want to go?")
-    stream.start_stream()
-    
-    MAX_ATTEMPTS = 3
-    for attempts in range(MAX_ATTEMPTS):
-        text = listen_for_text(stream, rec, sample_rate, chunk_size)
-        
-        if not text:
-            continue
-            
-        if exit_check(text, stream):
-            return False  # Return to wake word loop
-        
-        cleaned_text = clean_text(text)
-        cleaned_text2 = convert_number_words(cleaned_text)
-        print(f"Original: '{cleaned_text}', Converted: '{cleaned_text2}'")
-        
-        # Get navigation response which will update and use the context
-        response = classifier.get_navigation_response(cleaned_text2)
-        print("Navigation Response:", response)
-        
-        if not response['success']:
-            stream.stop_stream()
-            say(response['message'])
-            time.sleep(0.5)
-            stream.start_stream()
-            
-            # If last attempt, reset context
-            if attempts == MAX_ATTEMPTS - 1:
-                classifier.reset_context()
-                stream.stop_stream()
-                say("Let's start over. Please say the wake phrase when you're ready.")
-                time.sleep(0.5)
-                stream.start_stream()
-                return False
-            continue
-        
-        # If navigation is successful, extract the room and floor information
-        room_info = classifier.extract_location_info(cleaned_text2)
-        room_num = room_info.get('room_number') or room_info.get('room') or classifier.context.get('room')
-        floor = room_info.get('floor') or classifier.context.get('floor')
-        
-        # Ensure floor is a string
-        if isinstance(floor, list):
-            floor = floor[0]
-        
-        stream.stop_stream()
-        say(response['message'])
-        time.sleep(0.5)
-        stream.start_stream()
-        return True, room_num, floor
-    
-    return False
-
 
 
 def handle_question(stream, rec, sample_rate, chunk_size, llm):
@@ -200,10 +127,10 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
     
     while True:
         print("Ask question")
-        stream.stop_stream()
-        say("What is your question?")
-        stream.start_stream()
-    
+    #     stream.stop_stream()
+    #     say("What is your question?")
+    #     stream.start_stream()
+    # 
         text = listen_for_text(stream, rec, sample_rate, chunk_size)
         if not text:
             continue
@@ -263,7 +190,7 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
 
 def main(messageQ):
     print("Vosk main loop started, Queue object: ",messageQ)
-    vosk_model_path = "./vosk-model-small-en-us-0.15"
+    vosk_model_path = "./vosk-model-en-us-0.22"
     pyaudio_instance, stream, rec, sample_rate, chunk_size = initialize_vosk_recognizer(vosk_model_path)
     
     try:
@@ -271,13 +198,11 @@ def main(messageQ):
             print("Listening for wake word...")
             text = listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=messageQ)
                     
-            if not text:
-                continue
-                
-            if exit_check(text, stream):
+            if not text or exit_check(text, stream):
                 continue  # Return to wake word loop
                 
             if wake_word(stream, text):
+                print("Got wake word")
                 handle_question(stream, rec, sample_rate, chunk_size, llm)
     
     except KeyboardInterrupt:

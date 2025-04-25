@@ -17,9 +17,6 @@ import queue
 class RAG:
     def __init__(self, DATA_FILES_DIR, EMBEDDING_MODEL, LLM_MODEL, OLLAMA_BASE_URL, CHROMA_PERSIST_DIR, COLLECTION_NAME, N_RESULTS):
         """Initialize the LLM_RAG class with configurable parameters."""
-        print("Starting ollama docker container...",end='\t')
-        subprocess.run(['jetson-containers', 'run', '--detach', '--name', 'ollama', 'dustynv/ollama:r36.4.0'])
-        print("Done")
         # Configuration
         self.DATA_FILES_DIR = DATA_FILES_DIR
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
@@ -30,7 +27,7 @@ class RAG:
         self.N_RESULTS = N_RESULTS
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
-        # self.index_files()
+        self.index_files()
         
     def init_speech_system(self):
         self.audio_queue = queue.Queue()
