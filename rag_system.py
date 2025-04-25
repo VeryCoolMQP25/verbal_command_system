@@ -27,7 +27,7 @@ class RAG:
         self.N_RESULTS = N_RESULTS
         self.client = self.create_chroma_client()
         self.collection = self.get_chroma_collection()
-        self.index_files()
+        # self.index_files()
         
     def init_speech_system(self):
         self.audio_queue = queue.Queue()
@@ -182,8 +182,8 @@ class RAG:
         context = "\n\n".join(retrieved_chunks)
         
         # Formulate the prompt for the LLM
-        prompt = f"""You are Tori, a helpful tour guide robot in Unity Hall. Use the following context to answer the user's question. If the answer cannot be found in the context, explicitly state "I don't have enough information to answer this question." Be concise but informative. Only answer in one or two concise sentences. Do not end with questions.
-
+        prompt = f"""You are Tori, a helpful tour guide robot in WPI Unity Hall. Use the following context to answer the user's question. If the answer cannot be found in the context, explicitly state "I don't have enough information to answer this question." Be concise but informative. Only answer in one or two concise sentences. Do not end with questions.
+Format your output for a TTS system. Do not directly mention "the context" or "the provided documents", just answer the question or say you don't know.
 Context:
 {context}
 
@@ -249,3 +249,19 @@ Question: {query}"""
         else:
             print(f"Could not get an answer from the LLM.")
             return "I'm sorry, I'm having trouble processing your question right now."
+if __name__ == "__main__":
+    llm = RAG(
+        DATA_FILES_DIR="data_files",  # Directory containing your data files
+        EMBEDDING_MODEL="nomic-embed-text:latest",
+        LLM_MODEL="llama3.2:latest",
+        OLLAMA_BASE_URL="http://localhost:11434",
+        CHROMA_PERSIST_DIR="chroma_db",
+        COLLECTION_NAME="unity_hall_data",
+        N_RESULTS=10 # Number of relevant chunks to retrieve
+    )
+    while True:
+        try:
+            llm.generate_response(input("\nEnter query: "))
+        except(EOFError, KeyboardInterrupt):
+            exit()
+        print("\n")
