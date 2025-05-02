@@ -8,6 +8,7 @@ import time
 
 class NavigationNode(Node):
     def __init__(self):
+        """Initialize the navigation node with a goal publisher and load room coordinates from JSON file."""
         super().__init__('navigation_node')
         self.goal_publisher = self.create_publisher(PoseStamped, '/goal_pose', 10)
         
@@ -18,25 +19,21 @@ class NavigationNode(Node):
         
 
     def navigate(self, room_number, floor_number):
+        """Navigate the robot to a specific room on a specific floor using coordinates from the loaded JSON file."""
         floor_key = f"floor_{floor_number}"
         self.get_logger().info(f"Attempting navigation to floor: {floor_key}, room: {room_number}")
 
         if floor_key in self.room_coordinates:
             if room_number in self.room_coordinates[floor_key]:
-                coordinates = self.room_coordinates[floor_key][room_number]
-                
-                # Create goal message
+                coordinates = self.room_coordinates[floor_key][room_number]                
                 goal_msg = PoseStamped()
                 
-                # Set timestamp
                 current_time = self.get_clock().now()
                 goal_msg.header.stamp = current_time.to_msg()
                 goal_msg.header.frame_id = "map"
                 goal_msg.pose.position = Point(x=float(coordinates["x"]), y=float(coordinates["y"]), z=float(coordinates["z"]))
                 goal_msg.pose.orientation = Quaternion(x=float(0.0), y=float(0.0), z=float(coordinates["orientationZ"]), w=float(coordinates["orientationW"]))
                 self.goal_publisher.publish(goal_msg)
-                # self.goal_publisher.publish(goal_msg)
-                # self.goal_publisher.publish(goal_msg)
 
                 self.get_logger().info("Goal published!")
                 time.sleep(0.5)
@@ -53,7 +50,7 @@ def main():
     rclpy.init()
     nav_node = NavigationNode()
     
-    try: #testing 
+    try: # Testing 
         room_num = "Elevator"
         floor = "1"
         success = nav_node.navigate(room_num, floor)

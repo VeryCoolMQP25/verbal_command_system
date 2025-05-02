@@ -12,7 +12,7 @@ from nltk.stem import WordNetLemmatizer
 
 class RoomClassifier:
     def __init__(self):
-        # Initialize the lemmatizer from NLTK
+        """Initialize the room classifier with a lemmatizer and define patterns for rooms and floors with their associations."""
         self.lemmatizer = WordNetLemmatizer()
         
         # Define room patterns with fixed floor associations
@@ -62,14 +62,16 @@ class RoomClassifier:
 
         self.reset_context()
 
-    def reset_context(self): #reset stored context
+    def reset_context(self): 
+        """Reset the stored context information about room, room number, and floor."""
         self.context = {
             'room': None,
             'room_number': None,
             'floor': None
         }
 
-    def extract_room_number(self, text): #determine floor based on room number
+    def extract_room_number(self, text): 
+        """Extract room number from text and determine the floor based on the first digit of the room number."""
         room_numbers = re.findall(r'\b[1-5][0-9]{2}\b', text)
         
         if not room_numbers:
@@ -81,6 +83,7 @@ class RoomClassifier:
         return room_number, floor_number
 
     def preprocess_text(self, text):
+        """Clean and normalize text by converting to lowercase, removing punctuation, tokenizing, and lemmatizing words."""
         text = text.lower()
         text = re.sub(r'[^\w\s]', ' ', text)
         
@@ -101,6 +104,7 @@ class RoomClassifier:
         return ' '.join(lemmatized_tokens)
 
     def update_context(self, new_info):
+        """Update the context with new information, keeping existing values if no new values are provided."""
         for key in self.context:
             if key in new_info and new_info[key] is not None:
                 self.context[key] = new_info[key]
@@ -109,6 +113,7 @@ class RoomClassifier:
 
 
     def get_combined_text(self, text):
+        """Combine the input text with context information to create a more complete query for processing."""
         combined = text
         if self.context['room'] and "room" not in text.lower():
             combined = f"{self.context['room']} {combined}"
@@ -116,7 +121,8 @@ class RoomClassifier:
             combined = f"room {self.context['room_number']} {combined}"
         return combined
 
-    def extract_location_info(self, text): # determine room/floor based on input 
+    def extract_location_info(self, text): 
+        """Parse the input text to extract room and floor information based on predefined patterns and room numbers."""
         processed_text = self.preprocess_text(text)
         
         room_number, floor_from_number = self.extract_room_number(processed_text)
@@ -150,9 +156,8 @@ class RoomClassifier:
                 if floor_type:
                     break
         
-        # If we still didn't find a floor, check if there are any numeric references
+        # If we still didn't find a floor, check if there are any numeric references (floors 1-5)
         if not floor_type:
-            # Look for single digit numbers that could represent floors (1-5)
             floor_digits = re.findall(r'\b[1-5]\b', processed_text)
             if floor_digits:
                 floor_type = floor_digits[0]
@@ -168,6 +173,7 @@ class RoomClassifier:
         }
 
     def json(self, text):
+        """Verify if the requested room and floor exist in the building layout data stored in room coordinates JSON file."""
         flag = 0
 
         if not text or text.get('floor') is None:
@@ -207,6 +213,7 @@ class RoomClassifier:
         return flag
     
     def get_navigation_response(self, text):
+        """Process user input to generate an appropriate navigation response, combining context with new information."""
         new_info = self.extract_location_info(text)
         self.update_context(new_info)
         combined_text = self.get_combined_text(text)
@@ -292,7 +299,7 @@ if __name__ == "__main__":
         # "Navigate to the curtain area",  #will automatically use second floor 
         # "Navigate to the restrooms", #unknown floor 
         # "Can you show me where room 156 is?",
-        "Navigate to the lounge on the fifth floor.", #buggy, need to rdebug 5th floor 
+        "Navigate to the lounge on the fifth floor.", 
         # "Take me to tech suite 316 please.", 
         # "Take me to blah blah blah", #doesn't exist 
         "Take me to the pear lab on the second floor", 

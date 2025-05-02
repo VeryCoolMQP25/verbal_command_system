@@ -12,6 +12,7 @@ from io import BytesIO
 import simpleaudio as sa
 
 def say(text):
+    """Convert text to speech, play the audio, and wait for it to finish."""
     try:
         data = stream_elements.requestTTS(text, stream_elements.Voice.Joanna.value)
         audio = AudioSegment.from_mp3(BytesIO(data))
@@ -29,6 +30,7 @@ def say(text):
 
 class GoalProximityNode(Node):
     def __init__(self, audio_stream=None):
+        """Initialize a ROS2 node that monitors proximity to the navigation goal and handles arrival announcements."""
         super().__init__('goal_proximity_node')
         self.subscription = self.create_subscription(
             Int32,
@@ -41,6 +43,7 @@ class GoalProximityNode(Node):
         self.get_logger().info('Goal proximity node initialized')
         
     def proximity_callback(self, msg):
+        """Handle messages from the proximity topic, announce arrival when the robot reaches its destination."""
         self.get_logger().info(f'Received proximity message: {msg.data}')
         if msg.data == 1:
             self.arrived = True

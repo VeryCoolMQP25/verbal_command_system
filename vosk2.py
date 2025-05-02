@@ -37,6 +37,7 @@ llm = RAG(
 )
 
 def say(text):
+    """Convert text to speech, play the audio, and wait for it to finish."""
     try:
         data = stream_elements.requestTTS(text, stream_elements.Voice.Joanna.value)
         audio = AudioSegment.from_mp3(BytesIO(data))
@@ -53,6 +54,7 @@ def say(text):
         print(f"TTS Error: {e}")
 
 def clean_text(text):
+    """Clean text by removing whitespace, converting to lowercase, and removing punctuation."""
     if not text:
         return ""
     
@@ -62,6 +64,7 @@ def clean_text(text):
     return cleaned_text
 
 def initialize_vosk_recognizer(model_path, sample_rate=16000, chunk_size=4000):
+    """Initialize the Vosk speech recognition system with the specified model and audio parameters."""
     model = vosk.Model(model_path)
     rec = vosk.KaldiRecognizer(model, sample_rate)
     
@@ -76,6 +79,7 @@ def initialize_vosk_recognizer(model_path, sample_rate=16000, chunk_size=4000):
     return pyaudio_instance, stream, rec, sample_rate, chunk_size
 
 def listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=Queue(), timeout=None):
+    """Listens to an audio stream for a spoken phrase and returns transcribed text using Vosk."""
     text = ""
     start_time = time.time()
     
@@ -97,6 +101,7 @@ def listen_for_text(stream, rec, sample_rate, chunk_size, messageQ=Queue(), time
     return None
 
 def exit_check(text, stream):
+    """Check if the user's input contains exit commands and handle the exit process if needed."""
     if text:
         cleaned_text = clean_text(text)
         exit_words = {"stop", "goodbye", "bye", "exit", "quit", "end"}
@@ -112,6 +117,7 @@ def exit_check(text, stream):
     return False
 
 def wake_word(stream, text):
+    """Check if the user's input contains wake phrases to activate the robot and respond accordingly."""
     if text:
         cleaned_text = clean_text(text)
         wake_phrases = ["hey tori", "hey tory", "hey torry", "hitori", "katori", "a tori", "a tory"]
@@ -124,13 +130,14 @@ def wake_word(stream, text):
     return False
 
 def convert_number_words(sentence):
+    """Convert written number words to digits using the text2digits library."""
     try:
         return t2d.convert(sentence)
     except Exception as e:
         return f"Error: {e}"
 
 def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
-    # Implementation remains the same as original
+    """Handle navigation requests by prompting the user for a destination and processing the response with the room classifier."""
     stream.stop_stream()
     say("Where do you want to go?")
     stream.start_stream()
@@ -188,16 +195,8 @@ def handle_navigation(stream, rec, sample_rate, chunk_size, classifier):
 
 
 
-def handle_question(stream, rec, sample_rate, chunk_size, llm):
-    # Phrases to fill empty space between user asking question and LLM response 
-    random_phrases = [
-        "Let me think about that for a moment. Please wait.",
-        "I'm searching my database for that information. Please wait a moment.",
-        "That's a great question. Let me think of an answer for you! ",
-        "Give me a moment to think of a response for you! ",
-        "Thanks for your question! Let me think of a response for you.", 
-    ]
-    
+def handle_question(stream, rec, sample_rate, chunk_size, llm): 
+    """Handle questions by prompting the user for a question, generating a response using the LLM, and responding the the user."""
     while True:
         print("Ask question")
         stream.stop_stream()
@@ -215,7 +214,6 @@ def handle_question(stream, rec, sample_rate, chunk_size, llm):
         print(f"Processing question: '{cleaned_text}'")
         
         stream.stop_stream()
-        # say(random.choice(random_phrases))
         
         response = llm.generate_response(cleaned_text)
         print(f"Generated response: {response}")

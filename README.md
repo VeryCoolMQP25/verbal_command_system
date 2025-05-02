@@ -9,6 +9,5 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml <br />
 python App.py
 
 
-
 ### To test individually, run the following command: <br />
 python vosk2.py

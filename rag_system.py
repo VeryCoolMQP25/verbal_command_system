@@ -33,11 +33,13 @@ class RAG:
         # self.index_files()
         
     def init_speech_system(self):
+        """Initializes the speech system by creating an audio queue and starting a background thread for text-to-speech processing."""
         self.audio_queue = queue.Queue()
         self.speech_thread = threading.Thread(target=self._speech_worker, daemon=True)
         self.speech_thread.start()
 
     def _speech_worker(self):
+        """Worker thread that continuously monitors the audio queue, converts text to speech, and plays the audio."""
         while True:
             text = self.audio_queue.get()
             if text == "__STOP__":
@@ -57,10 +59,12 @@ class RAG:
             self.audio_queue.task_done()
 
     def enqueue_speech(self, text):
+        """Adds text to the speech queue for asynchronous text-to-speech conversion."""
         if text.strip():
             self.audio_queue.put(text.strip())
 
     def shutdown_speech_system(self):
+        """Terminates the speech system by stopping the worker thread and waiting for it to complete."""
         self.audio_queue.put("__STOP__")
         self.speech_thread.join()
 
@@ -139,24 +143,16 @@ class RAG:
     
     def limit_response(self, text, max_sentences=4):
         """Limit response to a specific number of sentences."""
-        # Split on sentence endings followed by space and capital letter
         sentences = re.split(r'[.!?]\s+(?=[A-Z])', text)
-        # Return limited sentences, rejoining with the punctuation and space
         limited = sentences[:max_sentences]
-        # Add final period if missing
         if limited and not limited[-1].endswith(('.', '!', '?')):
             limited[-1] += '.'
         return '. '.join(limited)
 
     def clean_llm_response(self, response):
         """Clean up the LLM response to remove any tags."""
-        # Split the response into lines
         lines = response.split('\n')
-        
-        # Filter out lines with the assistant tag
-        cleaned_lines = [line for line in lines if '<|assistant|>' not in line]
-        
-        # Join lines back together
+        cleaned_lines = [line for line in lines if '<|assistant|>' not in line]        
         cleaned_response = ' '.join(cleaned_lines).strip()
         return cleaned_response
     
@@ -245,7 +241,6 @@ Question: {query}"""
         print("\nDone")
         
         if full_response:
-            # Clean and limit the response
             answer = self.clean_llm_response(full_response)
             answer = self.limit_response(answer, max_sentences)
             return answer
